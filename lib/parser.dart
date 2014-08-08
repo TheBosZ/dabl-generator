@@ -15,7 +15,7 @@ Future<Database> getDatabaseSchema(DABLDDO ddo) {
 			c.complete(db);
 		});
 	} else {
-		throw new UnsupportedError('Connection type not recognized');
+		c.completeError('Connection type not recognized');
 	}
 
 	return c.future;
