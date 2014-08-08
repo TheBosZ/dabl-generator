@@ -1,5 +1,5 @@
 name: dabl_generator
-version: 0.1.1
+version: 0.1.2
 author: Nathan Kerr <nathankerr@gmail.com>
 description: Generator for the DABL ORM
 homepage: https://github.com/TheBosZ/dabl-generator
