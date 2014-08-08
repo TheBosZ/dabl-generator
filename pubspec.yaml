@@ -1,0 +1,12 @@
+name: dabl_generator
+version: 0.1.0
+author: Nathan Kerr
+description: Generator for the DABL ORM
+dependencies:
+  args: any
+  dabl:
+    path: ../dabl-dart
+  database_reverse_engineer:
+    path: ../database_reverse_engineer
+dev_dependencies:
+  unittest: any
