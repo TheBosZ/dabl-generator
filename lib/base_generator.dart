@@ -255,9 +255,14 @@ abstract class BaseGenerator {
 		return initialize().then((_) {
 			if(tableNames == null) {
 				tableNames = getTableNames();
-			} else if(tableNames.isEmpty) {
+			}
+			print(_database);
+			if(tableNames.isEmpty) {
+				print('NO TABLES FOUND');
 				throw new Exception('No tables found');
 			}
+			print('Found ${tableNames.length} tables');
+			print(tableNames);
 			if(!_options.containsKey('base_model_path') || _options['base_model_path'] == null) {
 				throw new Exception('base_mode_path not defined');
 			}
@@ -271,6 +276,7 @@ abstract class BaseGenerator {
 			ensureDirectoryExists("${projectPath}${modelPath}");
 			List<String> modelFiles = new List<String>();
 			for(String tableName in tableNames) {
+				print('Generating model ${tableName}');
 				String className = StringFormat.variable(getModelName(tableName));
 				String baseName =  "${baseModelPath}base_${className}.dart";
 				getBaseModel(tableName).then((String contents){

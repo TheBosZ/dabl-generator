@@ -10,6 +10,8 @@ Future<Database> getDatabaseSchema(DABLDDO ddo) {
 		db.setPlatform(platform);
 
 		return parser.parse(db).then((_) {
+			print(db.getTables());
+			print('Finished parsing db');
 			db.doFinalInitialization();
 			return db;
 		});
