@@ -76,20 +76,17 @@ abstract class BaseGenerator {
 	BaseGenerator(String this._connectionName);
 
 	Future<bool> initialize() {
-		Completer c = new Completer();
 		if(_database == null) {
 			DABLDDO conn = DBManager.getConnection(_connectionName);
-			getDatabaseSchema(conn).then((Database db){
+			return getDatabaseSchema(conn).then((Database db){
 				_database = db;
 				XmlElement root = new XmlElement('root');
 				db.appendXml(root);
 				_dbSchema = root.children.first;
-				c.complete(true);
+				return true;
 			});
-		} else {
-			c.complete(true);
 		}
-		return c.future;
+		return new Future.value(true);
 	}
 
 	List<String> getTableNames() => _database.getTables().map((Table t) => t.getName()).toList();
@@ -183,9 +180,9 @@ abstract class BaseGenerator {
 	String getProjectName() => "${getDBName()}_project";
 
 	Future<String> getBaseModel(String tableName) {
-		Completer c = new Completer();
+
 		String className = getModelName(tableName);
-		initialize().then((bool result) {
+		return initialize().then((bool result) {
 			List<Column> fields = getColumns(tableName);
 			DABLDDO conn = DBManager.getConnection(connectionName);
 			bool autoIncrement = false;
@@ -220,9 +217,9 @@ abstract class BaseGenerator {
 			bmg.toTable = getForeignKeysToTable(tableName);
 			bmg.baseGenerator = this;
 
-			c.complete(bmg.getFileContents());
+			return bmg.getFileContents();
 		});
-		return c.future;
+
 	}
 
 	BaseModelGenerator getBaseModelGenerator() => new BaseModelGenerator();
@@ -246,62 +243,58 @@ abstract class BaseGenerator {
 	ModelQueryGenerator getModelQueryGenerator() => new ModelQueryGenerator();
 
 	Future<String> getBaseModelQuery(String tableName) {
-		Completer c = new Completer();
-		initialize().then((_){
+		return initialize().then((_){
 			BaseModelQueryGenerator mbqg = getBaseModelQueryGenerator();
-			c.complete(mbqg.getFileContents());
+			return mbqg.getFileContents();
 		});
-		return c.future;
 	}
 
 	BaseModelQueryGenerator getBaseModelQueryGenerator() => new BaseModelQueryGenerator();
 
 	Future<List<String>> generateModels([List<String> tableNames = null]) {
-		Completer c = new Completer();
-		initialize().then((_) {
-			try {
-				if(tableNames == null) {
-					tableNames = getTableNames();
-				} else if(tableNames.isEmpty) {
-					throw new Exception('No tables found');
-				}
-				if(!_options.containsKey('base_model_path') || _options['base_model_path'] == null) {
-					throw new Exception('base_mode_path not defined');
-				}
-				if(!_options.containsKey('model_path') || _options['model_path'] == null) {
-					throw new Exception('model_path not defined');
-				}
-				String projectPath = _options['project_path'];
-				String baseModelPath = _options['base_model_path'];
-				String modelPath = _options['model_path'];
-				ensureDirectoryExists("${projectPath}${baseModelPath}");
-				ensureDirectoryExists("${projectPath}${modelPath}");
-				List<String> modelFiles = new List<String>();
-				for(String tableName in tableNames) {
-					String className = StringFormat.variable(getModelName(tableName));
-					String baseName =  "${baseModelPath}base_${className}.dart";
-					getBaseModel(tableName).then((String contents){
-						File output = new File("${projectPath}${baseName}");
-		            	output.writeAsStringSync(contents);
-					});
-
-					String modelFilePath = "${modelPath}${className}.dart";
-					File modelFile = new File("${projectPath}${modelFilePath}");
-					if(!modelFile.existsSync()) {
-						modelFile.writeAsStringSync(getModel(tableName));
-					}
-					modelFiles.add(baseName);
-					modelFiles.add(modelFilePath);
-
-				}
-				c.complete(modelFiles);
+		return initialize().then((_) {
+			if(tableNames == null) {
+				tableNames = getTableNames();
 			}
-			catch (e) {
-				c.completeError(e);
+			print(_database);
+			if(tableNames.isEmpty) {
+				print('NO TABLES FOUND');
+				throw new Exception('No tables found');
 			}
-			return;
+			print('Found ${tableNames.length} tables');
+			print(tableNames);
+			if(!_options.containsKey('base_model_path') || _options['base_model_path'] == null) {
+				throw new Exception('base_mode_path not defined');
+			}
+			if(!_options.containsKey('model_path') || _options['model_path'] == null) {
+				throw new Exception('model_path not defined');
+			}
+			String projectPath = _options['project_path'];
+			String baseModelPath = _options['base_model_path'];
+			String modelPath = _options['model_path'];
+			ensureDirectoryExists("${projectPath}${baseModelPath}");
+			ensureDirectoryExists("${projectPath}${modelPath}");
+			List<String> modelFiles = new List<String>();
+			for(String tableName in tableNames) {
+				print('Generating model ${tableName}');
+				String className = StringFormat.variable(getModelName(tableName));
+				String baseName =  "${baseModelPath}base_${className}.dart";
+				getBaseModel(tableName).then((String contents){
+					File output = new File("${projectPath}${baseName}");
+	            	output.writeAsStringSync(contents);
+				});
+
+				String modelFilePath = "${modelPath}${className}.dart";
+				File modelFile = new File("${projectPath}${modelFilePath}");
+				if(!modelFile.existsSync()) {
+					modelFile.writeAsStringSync(getModel(tableName));
+				}
+				modelFiles.add(baseName);
+				modelFiles.add(modelFilePath);
+
+			}
+			return modelFiles;
 		});
-		return c.future;
 	}
 
 	Future generateProjectFiles() {
