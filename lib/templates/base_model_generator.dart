@@ -38,7 +38,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 			result.write(field.getName());
 			result.write("';\n");
 		}
-		result.write(''' 
+		result.write('''
 	/**
 	 * Name of the table
 	 */
@@ -67,7 +67,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 ''');
 		if (PKs.isNotEmpty) {
 			for (Column thePk in PKs) {
-				result.write("\t\t'${thePk.getName()}',\n");
+				result.write("\t\t'${StringFormat.classProperty(thePk.getName())}',\n");
 			}
 		}
 		result.write('''
@@ -76,7 +76,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	/**
 	 * string name of the primary key column
 	 */
-	static const String primaryKey = '${PK != null ? PK.getName() : ''}';
+	static const String primaryKey = '${PK != null ? StringFormat.classProperty(PK.getName()) : ''}';
 
 	/**
 	 * true if primary key is an auto-increment column
@@ -142,7 +142,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 			if (field.isNumericType() && isInt(def) && def != null) {
 				def = null;
 			}
-			result.write('\t${field.getDartType()} ${field.getName()}');
+			result.write('\t${field.getDartType()} ${StringFormat.classProperty(field.getName())}');
 			if (field.isNumericType() && def != null) {
 				result.write(' = ${def}');
 			} else if (def != null && def.toLowerCase() != null) {
@@ -152,7 +152,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 		}
 		//Getters and setters
 		for (Column field in fields) {
-			String privateName = "${field.getName()}";
+			String privateName = "${StringFormat.classProperty(field.getName())}";
 			String def = field.getDefaultValue() != null && field.getDefaultValue().getValue() != 'null' ? field.getDefaultValue().getValue() : null;
 			String methodName = StringFormat.titleCase(field.getName());
 			String params = '';
@@ -170,8 +170,8 @@ abstract class ${baseClassName} extends ApplicationModel {
 			if (!usedMethods.contains(cacheMethodName)) {
 				usedMethods.add(cacheMethodName);
 				result.write('''
-			
-	/** 
+
+	/**
 	 * Gets the value of the ${field.getName()} field
 	 */
 	${field.getDartType()} ${cacheMethodName}(${params}) {
@@ -217,7 +217,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	 */
 
 	${className} ${cacheSetMethod}(Object value) {
-		return setColumnValue('${field.getName()}', value, Model.COLUMN_TYPE_${field.getType()});
+		return setColumnValue('${StringFormat.classProperty(field.getName())}', value, Model.COLUMN_TYPE_${field.getType()});
 	}
 ''');
 			}
@@ -237,7 +237,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 
 	/**
 	 * Convenience function for ${className}.set${methodName}
-	 * 
+	 *
 	 * @see ${className}.set${methodName}
 	 */
 	${className} set${rawMethodName}(${field.getDartType()} value) {
@@ -295,7 +295,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	static List<String> _columnsCache = new List<String>();
 
 	static bool hasColumn(String columnName) {
-		
+
 		if (null == _columnsCache || _columnsCache.isEmpty) {
 			_columnsCache = ${baseClassName}.columnNames.map((String s) => s.toLowerCase()).toList();
 		}
@@ -404,13 +404,11 @@ abstract class ${baseClassName} extends ApplicationModel {
 	 * Populates and returns a List of ${className} objects with the results of a query
 	 * If the query returns no results, returns an empty List
 	 */
-	static Future<List<${className}>> fetch(String queryString) {
+	static Future<List<${className}>> fetch(String queryString) async {
 		DABLDDO conn = ${baseClassName}.getConnection();
-		Completer c = new Completer();
-		conn.query(queryString).then((DDOStatement result) {
-			c.complete(${baseClassName}.fromResult(result, [${className}]));
-		});
-		return c.future;
+
+		DDOStatement result = await conn.query(queryString);
+		return ${baseClassName}.fromResult(result, [${className}]);
 	}
 
 	/**
@@ -441,7 +439,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 ''');
 		for (Column field in fields) {
 			if (Model.isIntegerType(field.getType())) {
-				result.write("\t\t${field.getName()} = (null == ${field.getName()}) ? null : int.parse(${field.getName()});\n");
+				result.write("\t\t${StringFormat.classProperty(field.getName())} = (null == ${field.getName()}) ? null : int.parse(${field.getName()});\n");
 			}
 		}
 		result.write('''
@@ -468,7 +466,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 			return;
 		}
 
-		${baseClassName}.instancePool[obj.getPrimaryKeyValues().values.join('-')] = obj;
+		${baseClassName}.instancePool[obj.getPrimaryKeyValues().join('-')] = obj;
 		${baseClassName}.instancePoolCount = ${baseClassName}.instancePool.length;
 ''');
 		}
@@ -508,9 +506,9 @@ abstract class ${baseClassName} extends ApplicationModel {
 	static void setPoolEnabled([bool b = true]) {
 		${baseClassName}.poolEnabled = b;
 	}
-	
+
 	static bool getPoolEnabled() => ${baseClassName}.poolEnabled;
-	
+
 	static Future<int> doCount([Query q = null]) {
 		q = q != null ? q.clone() : new Query();
 		DABLDDO conn = ${baseClassName}.getConnection();
@@ -527,33 +525,27 @@ abstract class ${baseClassName} extends ApplicationModel {
 			q.setTable(${baseClassName}.getTableName());
 		}
 		Future<int> result = q.doDelete(conn);
-		
+
 		if (flushPool) {
 			${baseClassName}.flushPool();
 		}
 		return result;
 	}
 
-	static Future<List<${className}>> doSelect([Query q = null, List<Type> additionalClasses = null]) {
+	static Future<List<${className}>> doSelect([Query q = null, List<Type> additionalClasses = null]) async {
 		if(additionalClasses == null) {
 			additionalClasses = new List<Type>();
 		}
 		additionalClasses.insert(0, ${className});
-		Completer c = new Completer();
-		${baseClassName}.doSelectRS(q).then((DDOStatement result) {
-			c.complete(${baseClassName}.fromResult(result, additionalClasses));
-		});
-		return c.future;
+		DDOStatement result = await ${baseClassName}.doSelectRS(q);
+		return ${baseClassName}.fromResult(result, additionalClasses);
 	}
 
-	static Future<${className}> doSelectOne([Query q = null, List<Type> additionalClasses = null]) {
+	static Future<${className}> doSelectOne([Query q = null, List<Type> additionalClasses = null]) async {
 		q = q != null ? q.clone() : new Query();
 		q.setLimit(1);
-		Completer c = new Completer();
-		${baseClassName}.doSelect(q, additionalClasses).then((List<${className}> objs) {
-			c.complete(objs.isNotEmpty ? objs.first : null);
-		});
-		return c.future;
+		List<${className}> objs = await ${baseClassName}.doSelect(q, additionalClasses);
+		return objs.isNotEmpty ? objs.first : null;
 	}
 
 	static Future<int> doUpdate(Map columnValues, [Query q = null]) {
@@ -571,7 +563,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	 * Set the maximum insert batch size, once this size is reached the batch automatically inserts.
 	 */
 	static int setInsertBatchSize([int size = 500]) => ${baseClassName}.insertBatchSize = size;
-	
+
 	/**
 	 * Queue for batch insert
 	 */
@@ -585,7 +577,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 		return this;
 	}
 
-	static Future<int> insertBatch() {
+	static Future<int> insertBatch() async {
 		if (${baseClassName}.insertBatchCache.isEmpty) {
 			return new Future.value(0);
 		}
@@ -603,14 +595,14 @@ abstract class ${baseClassName} extends ApplicationModel {
 ''');
 		}
 		result.write('''
-	
+
 		List values = new List();
 
 		List<String> queryS = new List<String>();
 		queryS.add('INSERT INTO \${quotedTable} (\${columns.map((String s) => conn.quoteIdentifier(s)).join(', ')}) VALUES');
 
 		List<String> placeHolders;
-		
+
 		for(${className} obj in ${baseClassName}.insertBatch) {
 			placeHolders = new List<String>();
 
@@ -653,21 +645,19 @@ abstract class ${baseClassName} extends ApplicationModel {
 		QueryStatement statement = new QueryStatement(conn);
 		statement.setString(queryS.join('\\n'));
 		statement.setParams(values);
-		Completer c = new Completer();
-		statement.bindAndExecute().then((DDOStatement results) {
-			for (${className} obj in ${baseClassName}.insertBatch) {
-				obj.setNew(false);
-				obj.resetModified();
-				if(obj.hasPrimaryKeyValues()) {
-					${baseClassName}.insertIntoPool(obj);
-				} else {
-					obj.setDirty(true);
-				}
+
+		DDOStatement results = await statement.bindAndExecute();
+		for (${className} obj in ${baseClassName}.insertBatch) {
+			obj.setNew(false);
+			obj.resetModified();
+			if(obj.hasPrimaryKeyValues()) {
+				${baseClassName}.insertIntoPool(obj);
+			} else {
+				obj.setDirty(true);
 			}
-			${baseClassName}.insertBatchCache.clear();
-			c.complete(results.rowCount());
-		});
-		return c.future;
+		}
+		${baseClassName}.insertBatchCache.clear();
+		return results.rowCount();
 	}
 
 	static Object coerceTemporalValue(Object value, String columnType, [DABLDDO conn = null]) {
@@ -1007,7 +997,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 			if (!usedMethods.contains(cacheDeleteMethodName)) {
 				usedMethods.add(cacheDeleteMethodName);
 				result.write('''
-			
+
 	/**
 	 * Deletes the ${fromTable} objects(rows) from the ${fromTable} table
 	 * with a ${fromColumn} that matches this.${toColumn}
@@ -1033,7 +1023,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	 * method will return the cached result instead of querying the database
 	 * a second time (for performance purposes).
 	 */
-	Future<List<${fromClassName}>> ${cacheGetMethodName}([Query q = null]) {
+	Future<List<${fromClassName}>> ${cacheGetMethodName}([Query q = null]) async {
 		if (null == get${tcToColumn}()) {
 			return new Future.value(new List<${fromClassName}>());
 		}
@@ -1046,15 +1036,12 @@ abstract class ${baseClassName} extends ApplicationModel {
 		) {
 			return new Future.value(${cacheProperty});
 		}
-		Completer c = new Completer();
-		${baseFromClassName}.doSelect(${cacheGetMethodNameQuery}(q)).then((List<${fromClassName}> result) {
-			if (getCacheResults() && q != null) { //We can't cache when sent a Query object
-				${cacheProperty} = result;
-			}
-			c.complete(result);
-		});
 
-		return c.future;
+		List<${fromClassName}> result = await ${baseFromClassName}.doSelect(${cacheGetMethodNameQuery}(q));
+		if (getCacheResults() && q != null) { //We can't cache when sent a Query object
+			${cacheProperty} = result;
+		}
+		return result;
 	}
 ''');
 			}
@@ -1163,7 +1150,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	 * to look up a row, I return if one of the primary keys is null.
 	 * @return int number of records deleted
 	 */
-	Future<int> delete() {
+	Future<int> delete() async {
 		Map<String, Object> pks = getPrimaryKeyValues();
 		if(pks == null || pks.isEmpty) {
 			throw new Exception('This table has no primary keys');
@@ -1177,13 +1164,10 @@ abstract class ${baseClassName} extends ApplicationModel {
 			q.addAnd(pk, pkVal);
 		}
 		q.setTable(${baseClassName}.getTableName());
-		Completer c = new Completer();
-		${baseClassName}.doDelete(q, false).then((int cnt) {
-			${baseClassName}.removeFromPool(this);
-			c.complete(cnt);
-		});
-		return c.future;
-			
+
+		int cnt = await ${baseClassName}.doDelete(q, false);
+		${baseClassName}.removeFromPool(this);
+		return cnt;
 	}
 
 	Query getForeignObjectsQuery(String foreignTable, String foreignColumn, String localColumn, [Query q = null]) {
@@ -1211,74 +1195,23 @@ abstract class ${baseClassName} extends ApplicationModel {
 		return setColumnValueByLibrary(columnName, value, '${baseGenerator.getProjectName()}', columnType);
 	}
 
-	Map<String, Object> getPrimaryKeyValues() {
-	    Map<String, Object> vals = new Map<String, Object>();
-	    InstanceMirror im = reflect(this);
-
-		 for(String pk in getPrimaryKeys()) {
-	    	var name = MirrorSystem.getName(new Symbol(pk));
-	    	var symb = MirrorSystem.getSymbol(name, currentMirrorSystem().findLibrary(const Symbol('${baseGenerator.getProjectName()}')));
-	    	vals[pk] = im.getField(symb).reflectee.toString();
-	    }
-	    return vals;
-	}
-
-	@override
-	int archive() {
-	// TODO: implement archive
-	}
-	
-	@override
-	Model copy() {
-	// TODO: implement copy
-	}
-	
-	@override
-	Model fromArray(Map<String, Object> array) {
-	// TODO: implement fromArray
-	}
-	
-	@override
-	bool fromAssociativeResultArray(Map<String, Object> values) {
-	// TODO: implement fromAssociativeResultArray
-	}
-	
-	@override
-	bool fromNumericResultArray(List values, int startCol) {
-	// TODO: implement fromNumericResultArray
-	}
-	
-	@override
-	String getLibraryName() {
-	// TODO: implement getLibraryName
-	}
-	
-	@override
-	bool hasPrimaryKeyValues() {
-	// TODO: implement hasPrimaryKeyValues
-	}
-	
 	@override
 	Map<String, Object> jsonSerialize() {
 	// TODO: implement jsonSerialize
 	}
-	
+
 	@override
 	Model setCacheResults([bool value = true]) {
 	// TODO: implement setCacheResults
 	}
-	
+
 	@override
 	Model setDirty(bool dirty) {
 	// TODO: implement setDirty
 	}
-	
-	@override
-	Map<String, Object> toArray() {
-	// TODO: implement toArray
-	}
+
 }
-	
+
 ''');
 		return result.toString();
 	}
