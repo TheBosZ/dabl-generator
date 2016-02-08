@@ -67,7 +67,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 ''');
 		if (PKs.isNotEmpty) {
 			for (Column thePk in PKs) {
-				result.write("\t\t'${StringFormat.classProperty(thePk.getName())}',\n");
+				result.write("\t\t'${StringFormat.titleCase(thePk.getName())}',\n");
 			}
 		}
 		result.write('''
@@ -76,7 +76,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	/**
 	 * string name of the primary key column
 	 */
-	static const String primaryKey = '${PK != null ? StringFormat.classProperty(PK.getName()) : ''}';
+	static const String primaryKey = '${PK != null ? StringFormat.titleCase(PK.getName()) : ''}';
 
 	/**
 	 * true if primary key is an auto-increment column
