@@ -14,3 +14,4 @@ pubspec.lock
 .idea
 /.packages
 project
+bin

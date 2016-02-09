@@ -142,7 +142,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 			if (field.isNumericType() && isInt(def) && def != null) {
 				def = null;
 			}
-			result.write('\t${field.getDartType()} ${StringFormat.classProperty(field.getName())}');
+			result.write('\t${field.getDartType()} ${field.getName()}');
 			if (field.isNumericType() && def != null) {
 				result.write(' = ${def}');
 			} else if (def != null && def.toLowerCase() != null) {
@@ -152,7 +152,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 		}
 		//Getters and setters
 		for (Column field in fields) {
-			String privateName = "${StringFormat.classProperty(field.getName())}";
+			String privateName = "${field.getName()}";
 			String def = field.getDefaultValue() != null && field.getDefaultValue().getValue() != 'null' ? field.getDefaultValue().getValue() : null;
 			String methodName = StringFormat.titleCase(field.getName());
 			String params = '';
@@ -217,7 +217,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	 */
 
 	${className} ${cacheSetMethod}(Object value) {
-		return setColumnValue('${StringFormat.classProperty(field.getName())}', value, Model.COLUMN_TYPE_${field.getType()});
+		return setColumnValue('${field.getName()}', value, Model.COLUMN_TYPE_${field.getType()});
 	}
 ''');
 			}
@@ -414,13 +414,13 @@ abstract class ${baseClassName} extends ApplicationModel {
 	/**
 	 * Returns a List of ${className} objects from a DDOStatement (Query result)
 	 */
-	static List<${className}> fromResult(DDOStatement result, [List<Type> classNames = null, bool usePool = null]) {
+	static List<${className}> fromResult(DDOStatement result, [List classNames = null, bool usePool = null]) {
 		if (null == usePool) {
 			usePool = ${baseClassName}.poolEnabled;
 		}
 
 		if(classNames == null) {
-			classNames = new List<Type>();
+			classNames = new List();
 			classNames.add(reflect(const Symbol('${className}')).type.reflectedType);
 		}
 		List<${className}> results = new List<${className}>();
@@ -439,7 +439,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 ''');
 		for (Column field in fields) {
 			if (Model.isIntegerType(field.getType())) {
-				result.write("\t\t${StringFormat.classProperty(field.getName())} = (null == ${field.getName()}) ? null : int.parse(${field.getName()});\n");
+				result.write("\t\t${field.getName()} = (null == ${field.getName()}) ? null : int.parse(${field.getName()});\n");
 			}
 		}
 		result.write('''
@@ -491,7 +491,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	 * Remove the object from the instance pool.
 	 */
 	static void removeFromPool(Object obj) {
-		String pk = (obj is Model) ? obj.getPrimaryKeyValues().values.join('-') : obj.toString();
+		String pk = (obj is Model) ? obj.getPrimaryKeyValues().join('-') : obj.toString();
 		if(${baseClassName}.instancePool.containsKey(pk)) {
 			${baseClassName}.instancePool.remove(pk);
 			${baseClassName}.instancePoolCount = ${baseClassName}.instancePool.length;
@@ -532,16 +532,16 @@ abstract class ${baseClassName} extends ApplicationModel {
 		return result;
 	}
 
-	static Future<List<${className}>> doSelect([Query q = null, List<Type> additionalClasses = null]) async {
+	static Future<List<${className}>> doSelect([Query q = null, List additionalClasses = null]) async {
 		if(additionalClasses == null) {
-			additionalClasses = new List<Type>();
+			additionalClasses = new List();
 		}
 		additionalClasses.insert(0, ${className});
 		DDOStatement result = await ${baseClassName}.doSelectRS(q);
 		return ${baseClassName}.fromResult(result, additionalClasses);
 	}
 
-	static Future<${className}> doSelectOne([Query q = null, List<Type> additionalClasses = null]) async {
+	static Future<${className}> doSelectOne([Query q = null, List additionalClasses = null]) async {
 		q = q != null ? q.clone() : new Query();
 		q.setLimit(1);
 		List<${className}> objs = await ${baseClassName}.doSelect(q, additionalClasses);
@@ -599,11 +599,11 @@ abstract class ${baseClassName} extends ApplicationModel {
 		List values = new List();
 
 		List<String> queryS = new List<String>();
-		queryS.add('INSERT INTO \${quotedTable} (\${columns.map((String s) => conn.quoteIdentifier(s)).join(', ')}) VALUES');
+		String insertStmt = 'INSERT INTO ${quotedTable} (${columns.map((String s) => conn.quoteIdentifier(s)).join(', ')}) VALUES';
 
 		List<String> placeHolders;
 
-		for(${className} obj in ${baseClassName}.insertBatch) {
+		for(${className} obj in ${baseClassName}.insertBatchCache) {
 			placeHolders = new List<String>();
 
 			if (!obj.validate()) {
@@ -643,11 +643,11 @@ abstract class ${baseClassName} extends ApplicationModel {
 		}
 
 		QueryStatement statement = new QueryStatement(conn);
-		statement.setString(queryS.join('\\n'));
+		statement.setString("\${insertStmt} \${queryS.join(',\\n')}");
 		statement.setParams(values);
 
 		DDOStatement results = await statement.bindAndExecute();
-		for (${className} obj in ${baseClassName}.insertBatch) {
+		for (${className} obj in ${baseClassName}.insertBatchCache) {
 			obj.setNew(false);
 			obj.resetModified();
 			if(obj.hasPrimaryKeyValues()) {
@@ -893,7 +893,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	static Future<List<${className}>> doSelectJoinAll([Query q = null, String joinType = Query.LEFT_JOIN]) {
 		q = q != null ? q.clone() : new Query();
 		List<String> columns = q.getColumns().values;
-		List<Type> classes = new List<Type>();
+		List classes = new List();
 		String alias = q.getAlias();
 		String thisTable = alias != null ? alias : ${baseClassName}.getTableName();
 		if(columns.isEmpty) {
@@ -1139,35 +1139,6 @@ abstract class ${baseClassName} extends ApplicationModel {
 		}
 		result.write('''
 		return validationErrors.isEmpty;
-	}
-
-	/**
-	 * Creates and executess DELETE Query for this object
-	 * Deletes any database rows with a primary key(s) that match $this
-	 * NOTE/BUG: If you alter pre-existing primary key(s) before deleting, then you will be
-	 * deleting based on the new primary key(s) and not the originals,
-	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
-	 * to look up a row, I return if one of the primary keys is null.
-	 * @return int number of records deleted
-	 */
-	Future<int> delete() async {
-		Map<String, Object> pks = getPrimaryKeyValues();
-		if(pks == null || pks.isEmpty) {
-			throw new Exception('This table has no primary keys');
-		}
-		Query q = ${baseClassName}.getQuery();
-		for(String pk in pks.keys) {
-			var pkVal = pks[pk];
-			if(pkVal == null || pkVal.isEmpty) {
-				throw new Exception('Cannot delete using NULL primary key.');
-			}
-			q.addAnd(pk, pkVal);
-		}
-		q.setTable(${baseClassName}.getTableName());
-
-		int cnt = await ${baseClassName}.doDelete(q, false);
-		${baseClassName}.removeFromPool(this);
-		return cnt;
 	}
 
 	Query getForeignObjectsQuery(String foreignTable, String foreignColumn, String localColumn, [Query q = null]) {
