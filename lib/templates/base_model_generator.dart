@@ -599,7 +599,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 		List values = new List();
 
 		List<String> queryS = new List<String>();
-		String insertStmt = 'INSERT INTO ${quotedTable} (${columns.map((String s) => conn.quoteIdentifier(s)).join(', ')}) VALUES';
+		String insertStmt = 'INSERT INTO \${quotedTable} (\${columns.map((String s) => conn.quoteIdentifier(s)).join(', ')}) VALUES';
 
 		List<String> placeHolders;
 
