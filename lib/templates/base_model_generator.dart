@@ -317,7 +317,7 @@ abstract class ${baseClassName} extends ApplicationModel {
 	static Future<${className}> retrieveByPK(${ PKs.isNotEmpty && PKs.length == 1 ? "${PKs.first.getDartType()} ${StringFormat.variable(PKs.first.getName())}" : 'Object the_pk'}) {
 ''');
 		if (PKs.length > 1) {
-			result.write("\t\tthrow new Exception('This table was more than one primary key. Use retrieveByPKs() instead');\n");
+			result.write("\t\tthrow new Exception('This table has more than one primary key. Use retrieveByPKs() instead');\n");
 		} else if (PKs.length == 0) {
 			result.write("\t\tthrow new Exception('This table does not have any primary keys');\n");
 		} else {
